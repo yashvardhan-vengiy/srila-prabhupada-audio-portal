@@ -126,3 +126,10 @@ id,file_number,category,title,verse,lectured_date,lectured_location,filename,dri
 ## User privacy
 
 Each devotee sees only his/her own progress, notes, liked points, and saved position. This is enforced by Supabase Row Level Security policies in `supabase/schema.sql`.
+
+
+## Playback fix notes
+
+This version includes multiple Google Drive playback URL attempts and a visible native browser audio control. If Google Drive refuses direct MP3 playback, the app automatically shows the Drive preview fallback.
+
+For fully reliable custom play, pause, seek, speed, and resume controls, store MP3 files in a public audio storage/CDN such as Supabase Storage, Cloudflare R2, Bunny CDN, Amazon S3, or another service that returns a direct MP3 URL.

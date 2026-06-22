@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { isSupabaseConfigured, supabase } from './lib/supabaseClient.js';
-import { directDriveUrl, previewDriveUrl, formatTime } from './lib/drive.js';
+import { driveAudioCandidates, previewDriveUrl, formatTime } from './lib/drive.js';
 
 const PAGE_SIZE = 1000;
 const STATUS_LABELS = {
@@ -154,9 +154,13 @@ function AudioPlayer({ current, progress, onStatusChange, onProgressPatch, onPre
   const [speed, setSpeed] = useState(1);
   const [volume, setVolume] = useState(0.9);
   const [audioFailed, setAudioFailed] = useState(false);
+  const [sourceIndex, setSourceIndex] = useState(0);
+  const [playError, setPlayError] = useState('');
 
   useEffect(() => {
     setAudioFailed(false);
+    setPlayError('');
+    setSourceIndex(0);
     setIsPlaying(false);
     setTime(0);
     setDuration(0);
@@ -170,6 +174,27 @@ function AudioPlayer({ current, progress, onStatusChange, onProgressPatch, onPre
       audioRef.current.volume = volume;
     }
   }, [speed, volume]);
+
+  const sources = current ? driveAudioCandidates(current) : [];
+  const src = sources[sourceIndex] || '';
+
+  function tryNextSource(message = '') {
+    if (sourceIndex < sources.length - 1) {
+      setPlayError(message || 'Trying another Drive playback URL...');
+      setSourceIndex((index) => index + 1);
+      setAudioFailed(false);
+      setTimeout(() => {
+        const audio = audioRef.current;
+        if (audio) {
+          audio.load();
+          audio.play().catch(() => setAudioFailed(true));
+        }
+      }, 150);
+    } else {
+      setPlayError(message || 'Direct audio playback failed. Use Drive preview or move audio to public storage.');
+      setAudioFailed(true);
+    }
+  }
 
   async function togglePlay() {
     const audio = audioRef.current;
@@ -185,7 +210,7 @@ function AudioPlayer({ current, progress, onStatusChange, onProgressPatch, onPre
         onProgressPatch(current.id, { last_position_seconds: Math.floor(audio.currentTime) });
       }
     } catch (error) {
-      setAudioFailed(true);
+      tryNextSource(error?.message || 'Browser could not start this Drive audio URL.');
     }
   }
 
@@ -240,7 +265,6 @@ function AudioPlayer({ current, progress, onStatusChange, onProgressPatch, onPre
     );
   }
 
-  const src = directDriveUrl(current);
   const preview = previewDriveUrl(current);
   const status = progress?.status || 'not-heard';
 
@@ -255,13 +279,18 @@ function AudioPlayer({ current, progress, onStatusChange, onProgressPatch, onPre
         ref={audioRef}
         src={src}
         preload="metadata"
+        controls
+        className="native-audio"
         onLoadedMetadata={onLoadedMetadata}
         onTimeUpdate={onTimeUpdate}
         onEnded={markCompleted}
         onPause={() => setIsPlaying(false)}
         onPlay={() => setIsPlaying(true)}
-        onError={() => setAudioFailed(true)}
+        onCanPlay={() => { setAudioFailed(false); setPlayError(''); }}
+        onError={() => tryNextSource('This Drive URL did not load as playable MP3 audio.')}
       />
+
+      {playError && <p className="play-error">{playError}</p>}
 
       <div className="player-controls">
         <button className="round" onClick={onPrev} title="Previous">‹</button>

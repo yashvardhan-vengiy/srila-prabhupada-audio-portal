@@ -9,9 +9,19 @@ export function getDriveFileId(url = '') {
   }
 }
 
-export function directDriveUrl(recording) {
+export function driveAudioCandidates(recording) {
   const id = recording.drive_file_id || getDriveFileId(recording.drive_url);
-  return recording.direct_url || (id ? `https://drive.google.com/uc?export=download&id=${id}` : recording.drive_url);
+  const urls = [
+    recording.direct_url,
+    id ? `https://drive.google.com/uc?export=download&id=${id}&confirm=t` : '',
+    id ? `https://drive.usercontent.google.com/download?id=${id}&export=download&confirm=t` : '',
+    id ? `https://docs.google.com/uc?export=download&id=${id}` : '',
+  ].filter(Boolean);
+  return Array.from(new Set(urls));
+}
+
+export function directDriveUrl(recording) {
+  return driveAudioCandidates(recording)[0] || recording.drive_url || '';
 }
 
 export function previewDriveUrl(recording) {
