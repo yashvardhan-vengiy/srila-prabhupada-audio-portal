@@ -1,3 +1,5 @@
+# Google Drive Preview Player Version
+
 # Srila Prabhupada Audio Portal
 
 A public hosted web app for devotees to sign in with Google or email, hear Srila Prabhupada audio recordings, track completion, resume hearing, and save personal notes / points liked.
@@ -133,3 +135,8 @@ Each devotee sees only his/her own progress, notes, liked points, and saved posi
 This version includes multiple Google Drive playback URL attempts and a visible native browser audio control. If Google Drive refuses direct MP3 playback, the app automatically shows the Drive preview fallback.
 
 For fully reliable custom play, pause, seek, speed, and resume controls, store MP3 files in a public audio storage/CDN such as Supabase Storage, Cloudflare R2, Bunny CDN, Amazon S3, or another service that returns a direct MP3 URL.
+
+
+## Playback note
+
+This version uses the Google Drive preview player inside the page. Click the play button inside the Drive frame. The website still saves each devotee's status, notes, and liked points in Supabase. Custom play/pause/seek controls require a direct MP3 hosting service such as Cloudflare R2, S3, Bunny, or Supabase Storage.

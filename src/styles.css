@@ -225,3 +225,40 @@ pre { overflow-x: auto; padding: 14px; background: #2b1b10; color: #ffe9c7; bord
   font-weight: 700;
   font-size: 0.92rem;
 }
+
+.as-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+}
+
+.drive-preview-card {
+  margin-top: 18px;
+  background: #fff0dc;
+  border: 1px solid #efc88e;
+  border-radius: 18px;
+  padding: 14px;
+  color: var(--accent-dark);
+}
+
+.drive-preview-card p {
+  margin: 8px 0 12px;
+  color: var(--muted);
+  font-weight: 650;
+}
+
+.drive-preview-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.drive-preview-card iframe {
+  width: 100%;
+  height: 260px;
+  border: 0;
+  border-radius: 14px;
+  background: white;
+}

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { isSupabaseConfigured, supabase } from './lib/supabaseClient.js';
-import { driveAudioCandidates, previewDriveUrl, formatTime } from './lib/drive.js';
+import { previewDriveUrl } from './lib/drive.js';
 
 const PAGE_SIZE = 1000;
 const STATUS_LABELS = {
@@ -144,116 +144,12 @@ function StatCard({ label, value, hint }) {
   );
 }
 
-function AudioPlayer({ current, progress, onStatusChange, onProgressPatch, onPrev, onNext }) {
-  const audioRef = useRef(null);
-  const lastSavedAt = useRef(0);
-  const loadedRecordingId = useRef(null);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [time, setTime] = useState(0);
-  const [duration, setDuration] = useState(0);
-  const [speed, setSpeed] = useState(1);
-  const [volume, setVolume] = useState(0.9);
-  const [audioFailed, setAudioFailed] = useState(false);
-  const [sourceIndex, setSourceIndex] = useState(0);
-  const [playError, setPlayError] = useState('');
+function AudioPlayer({ current, progress, onStatusChange, onPrev, onNext }) {
+  const [showPreview, setShowPreview] = useState(true);
 
   useEffect(() => {
-    setAudioFailed(false);
-    setPlayError('');
-    setSourceIndex(0);
-    setIsPlaying(false);
-    setTime(0);
-    setDuration(0);
-    loadedRecordingId.current = null;
-    lastSavedAt.current = 0;
+    setShowPreview(true);
   }, [current?.id]);
-
-  useEffect(() => {
-    if (audioRef.current) {
-      audioRef.current.playbackRate = speed;
-      audioRef.current.volume = volume;
-    }
-  }, [speed, volume]);
-
-  const sources = current ? driveAudioCandidates(current) : [];
-  const src = sources[sourceIndex] || '';
-
-  function tryNextSource(message = '') {
-    if (sourceIndex < sources.length - 1) {
-      setPlayError(message || 'Trying another Drive playback URL...');
-      setSourceIndex((index) => index + 1);
-      setAudioFailed(false);
-      setTimeout(() => {
-        const audio = audioRef.current;
-        if (audio) {
-          audio.load();
-          audio.play().catch(() => setAudioFailed(true));
-        }
-      }, 150);
-    } else {
-      setPlayError(message || 'Direct audio playback failed. Use Drive preview or move audio to public storage.');
-      setAudioFailed(true);
-    }
-  }
-
-  async function togglePlay() {
-    const audio = audioRef.current;
-    if (!audio || !current) return;
-    try {
-      if (audio.paused) {
-        await audio.play();
-        setIsPlaying(true);
-        if ((progress?.status || 'not-heard') === 'not-heard') onStatusChange(current.id, 'hearing');
-      } else {
-        audio.pause();
-        setIsPlaying(false);
-        onProgressPatch(current.id, { last_position_seconds: Math.floor(audio.currentTime) });
-      }
-    } catch (error) {
-      tryNextSource(error?.message || 'Browser could not start this Drive audio URL.');
-    }
-  }
-
-  function onLoadedMetadata() {
-    const audio = audioRef.current;
-    if (!audio || !current) return;
-    setDuration(audio.duration || 0);
-    if (loadedRecordingId.current !== current.id) {
-      loadedRecordingId.current = current.id;
-      const resumeAt = Number(progress?.last_position_seconds || 0);
-      if (resumeAt > 0 && Number.isFinite(audio.duration) && resumeAt < audio.duration - 3) {
-        audio.currentTime = resumeAt;
-        setTime(resumeAt);
-      }
-    }
-  }
-
-  function onTimeUpdate() {
-    const audio = audioRef.current;
-    if (!audio || !current) return;
-    setTime(audio.currentTime || 0);
-    setDuration(audio.duration || 0);
-    const now = Date.now();
-    if (now - lastSavedAt.current > 10000) {
-      lastSavedAt.current = now;
-      onProgressPatch(current.id, { last_position_seconds: Math.floor(audio.currentTime || 0) }, { quiet: true });
-    }
-  }
-
-  function seek(event) {
-    const audio = audioRef.current;
-    if (!audio) return;
-    const next = Number(event.target.value);
-    audio.currentTime = next;
-    setTime(next);
-    if (current) onProgressPatch(current.id, { last_position_seconds: Math.floor(next) }, { quiet: true });
-  }
-
-  function markCompleted() {
-    if (!current) return;
-    onStatusChange(current.id, 'completed', { last_position_seconds: Math.floor(duration || time || 0) });
-    setIsPlaying(false);
-  }
 
   if (!current) {
     return (
@@ -275,48 +171,30 @@ function AudioPlayer({ current, progress, onStatusChange, onProgressPatch, onPre
       <p className="muted small-line">{current.category} {current.verse ? `• ${current.verse}` : ''}</p>
       <p className="muted small-line">{current.lectured_date} {current.lectured_location ? `• ${current.lectured_location}` : ''}</p>
 
-      <audio
-        ref={audioRef}
-        src={src}
-        preload="metadata"
-        controls
-        className="native-audio"
-        onLoadedMetadata={onLoadedMetadata}
-        onTimeUpdate={onTimeUpdate}
-        onEnded={markCompleted}
-        onPause={() => setIsPlaying(false)}
-        onPlay={() => setIsPlaying(true)}
-        onCanPlay={() => { setAudioFailed(false); setPlayError(''); }}
-        onError={() => tryNextSource('This Drive URL did not load as playable MP3 audio.')}
-      />
-
-      {playError && <p className="play-error">{playError}</p>}
+      <div className="drive-preview-card">
+        <div className="drive-preview-header">
+          <strong>Google Drive Player</strong>
+          <button className="secondary" onClick={() => setShowPreview((value) => !value)}>
+            {showPreview ? 'Hide player' : 'Show player'}
+          </button>
+        </div>
+        <p>
+          Click the play button inside this Google Drive player. The website will still save your hearing status and notes.
+        </p>
+        {showPreview && (
+          <iframe
+            title="Google Drive audio preview"
+            src={preview}
+            allow="autoplay"
+            allowFullScreen
+          />
+        )}
+      </div>
 
       <div className="player-controls">
         <button className="round" onClick={onPrev} title="Previous">‹</button>
-        <button className="play" onClick={togglePlay}>{isPlaying ? 'Pause' : 'Play'}</button>
+        <a className="play as-link" href={preview} target="_blank" rel="noreferrer">Open Player</a>
         <button className="round" onClick={onNext} title="Next">›</button>
-      </div>
-
-      <div className="seek-row">
-        <span>{formatTime(time)}</span>
-        <input type="range" min="0" max={Math.floor(duration || 0)} value={Math.floor(time || 0)} onChange={seek} />
-        <span>{formatTime(duration)}</span>
-      </div>
-
-      <div className="player-options">
-        <label>Speed
-          <select value={speed} onChange={(event) => setSpeed(Number(event.target.value))}>
-            <option value="0.75">0.75×</option>
-            <option value="1">1×</option>
-            <option value="1.25">1.25×</option>
-            <option value="1.5">1.5×</option>
-            <option value="2">2×</option>
-          </select>
-        </label>
-        <label>Volume
-          <input type="range" min="0" max="1" step="0.05" value={volume} onChange={(event) => setVolume(Number(event.target.value))} />
-        </label>
       </div>
 
       <div className="status-row">
@@ -332,14 +210,6 @@ function AudioPlayer({ current, progress, onStatusChange, onProgressPatch, onPre
       </div>
 
       <a className="drive-link" href={current.drive_url} target="_blank" rel="noreferrer">Open original Drive file</a>
-
-      {audioFailed && (
-        <div className="fallback-box">
-          <strong>Drive direct playback did not start.</strong>
-          <p>Use the Drive preview below. For full custom controls on every file, keep the Drive files public or move audio to Supabase Storage / Cloudflare R2.</p>
-          <iframe title="Google Drive preview" src={preview} allow="autoplay" />
-        </div>
-      )}
     </aside>
   );
 }
@@ -613,7 +483,6 @@ export default function App() {
             current={current}
             progress={currentProgress}
             onStatusChange={updateStatus}
-            onProgressPatch={patchProgress}
             onPrev={goPrev}
             onNext={goNext}
           />
